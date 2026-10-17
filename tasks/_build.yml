@@ -85,5 +85,5 @@
 
 - name: Build the go binary inside the golang container
   ansible.builtin.command:
-    cmd: "{{ go_bin_cont_builder_docker_args }}"
+    argv: "{{ go_bin_cont_builder_docker_args }}"
   changed_when: true
