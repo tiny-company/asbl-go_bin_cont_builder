@@ -1,0 +1,10 @@
+---
+
+roles:
+  - name: apt_packages_install
+    scm: git
+    src: https://github.com/tiny-company/asbl-apt_packages_install.git
+    version: main
+
+collections:
+  - name: ansible.posix

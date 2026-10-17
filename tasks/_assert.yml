@@ -1,0 +1,87 @@
+---
+## filename: tasks/_assert.yml
+## description: validate role variables before anything is downloaded,
+##   built or installed
+## date: 2026-10-18
+
+- name: "Assert | go_bin_cont_builder_name is defined and not empty"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - go_bin_cont_builder_name is defined
+      - go_bin_cont_builder_name | length > 0
+    fail_msg: "'go_bin_cont_builder_name' must be a non-empty string"
+
+- name: "Assert | go_bin_cont_builder_golang_version is explicitly pinned"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - go_bin_cont_builder_golang_version is defined
+      - go_bin_cont_builder_golang_version | length > 0
+    fail_msg: >
+      'go_bin_cont_builder_golang_version' must be set explicitly (no
+      floating default is provided on purpose, to avoid an unpinned
+      "golang:latest"-style build drifting over time)
+
+- name: "Assert | go_bin_cont_builder_source_type is valid"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - go_bin_cont_builder_source_type in ["url", "local"]
+    fail_msg: "'go_bin_cont_builder_source_type' must be 'url' or 'local'"
+
+- name: "Assert | go_bin_cont_builder_source_url is set"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - go_bin_cont_builder_source_url | length > 0
+    fail_msg: "'go_bin_cont_builder_source_url' must be set when go_bin_cont_builder_source_type is 'url'"
+  when: go_bin_cont_builder_source_type == "url"
+
+- name: "Assert | go_bin_cont_builder_source_local_path is set"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - go_bin_cont_builder_source_local_path | length > 0
+    fail_msg: "'go_bin_cont_builder_source_local_path' must be set when go_bin_cont_builder_source_type is 'local'"
+  when: go_bin_cont_builder_source_type == "local"
+
+- name: "Assert | go_bin_cont_builder_source_local_path exists on the controller"
+  ansible.builtin.stat:
+    path: "{{ go_bin_cont_builder_source_local_path }}"
+  register: go_bin_cont_builder_local_path_stat
+  delegate_to: localhost
+  become: false
+  when: go_bin_cont_builder_source_type == "local"
+
+- name: "Assert | go_bin_cont_builder_source_local_path is a directory"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - go_bin_cont_builder_local_path_stat.stat.exists
+      - go_bin_cont_builder_local_path_stat.stat.isdir
+    fail_msg: >
+      'go_bin_cont_builder_source_local_path'
+      ({{ go_bin_cont_builder_source_local_path }}) does not exist or is
+      not a directory on the Ansible controller
+  when: go_bin_cont_builder_source_type == "local"
+
+- name: "Assert | go_bin_cont_builder_dest is an absolute path"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - go_bin_cont_builder_dest is defined
+      - go_bin_cont_builder_dest | length > 0
+      - go_bin_cont_builder_dest.startswith('/')
+    fail_msg: "'go_bin_cont_builder_dest' must be an absolute path"
+
+- name: "Assert | go_bin_cont_builder_dest_owner/group/mode are defined"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - go_bin_cont_builder_dest_owner | length > 0
+      - go_bin_cont_builder_dest_group | length > 0
+      - go_bin_cont_builder_dest_mode | length > 0
+    fail_msg: >
+      'go_bin_cont_builder_dest_owner', 'go_bin_cont_builder_dest_group'
+      and 'go_bin_cont_builder_dest_mode' must all be set

@@ -1,0 +1,11 @@
+# # IDEs
+# .idea/
+# .vscode/
+
+### Ansible ###
+*.retry
+inventory.yml
+
+## Dont push the vars but push the example
+**/group_vars/*
+!**/group_vars/*_example.yml

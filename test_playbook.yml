@@ -1,0 +1,16 @@
+---
+
+- name: go_bin_cont_builder playbook
+  hosts: all
+  roles:
+    - role: ../asbl-go_bin_cont_builder
+      become: true
+      become_user: "{{ root_username | default('root') }}"
+      tags: [go_bin_cont_builder]
+      vars:
+        go_bin_cont_builder_name: "example"
+        go_bin_cont_builder_golang_version: "1.23-bookworm"
+        go_bin_cont_builder_source_type: "url"
+        go_bin_cont_builder_source_url: "https://github.com/example/example/archive/refs/tags/v1.0.0.tar.gz"
+        go_bin_cont_builder_source_url_extra_opts: ["--strip-components=1"]
+        go_bin_cont_builder_dest: "/usr/local/bin/example"

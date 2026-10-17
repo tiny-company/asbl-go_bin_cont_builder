@@ -1,0 +1,83 @@
+---
+## filename: defaults/main.yml
+## description: default variable values for the go_bin_cont_builder role;
+##   builds a go binary inside a throwaway golang container and installs it
+##   on the target host, without requiring a go toolchain on that host
+## date: 2026-10-18
+
+## ==================
+## build identity: namespaces staging/cache paths and the default output
+## binary name for this build
+go_bin_cont_builder_name: "app"
+
+## ==================
+## source selection: "url" downloads and extracts a tarball/zip archive on
+## the target host; "local" synchronizes a directory from the Ansible
+## controller to the target host
+go_bin_cont_builder_source_type: "url"
+
+## used when go_bin_cont_builder_source_type == "url"
+go_bin_cont_builder_source_url: ""
+## optional but recommended: "<algo>:<digest>", e.g. "sha256:abc123...",
+## passed to ansible.builtin.get_url's "checksum" parameter
+go_bin_cont_builder_source_url_checksum: ""
+## extra flags forwarded to the underlying tar/unzip command, e.g.
+## ["--strip-components=1"] when the archive's content sits one directory
+## level deeper than the archive root (common for GitHub source tarballs).
+## only applies to tar-based archives; unzip does not support this flag
+go_bin_cont_builder_source_url_extra_opts: []
+
+## used when go_bin_cont_builder_source_type == "local"
+## directory on the Ansible controller; synchronized to the target host
+go_bin_cont_builder_source_local_path: ""
+
+## where the source is staged on the target host before building. kept
+## across runs by default (acts as a persistent build workspace); set
+## go_bin_cont_builder_clean_build_dir to wipe it after each build instead
+go_bin_cont_builder_build_src_dir: "/opt/go_bin_cont_builder/{{ go_bin_cont_builder_name }}/src"
+go_bin_cont_builder_clean_build_dir: false
+
+## ==================
+## build container
+## no default version on purpose: a floating/guessed tag would silently
+## drift over time, so the caller must pin the exact golang image tag
+go_bin_cont_builder_golang_image: "golang"
+go_bin_cont_builder_golang_version: ""
+
+## uid/gid the build runs as inside the container (hardening: avoids
+## running the go toolchain as root even in a throwaway --rm container).
+## 65534 is the conventional "nobody"/"nogroup" uid/gid
+go_bin_cont_builder_build_uid: 65534
+go_bin_cont_builder_build_gid: 65534
+
+## ==================
+## go module/build cache, persisted on the host across runs so repeat
+## builds do not re-download every dependency
+go_bin_cont_builder_cache_enabled: true
+go_bin_cont_builder_cache_dir: "/var/cache/go_bin_cont_builder/{{ go_bin_cont_builder_name }}"
+
+## ==================
+## build command
+## subdirectory (relative to the module root) to build, passed as the
+## final argument to "go build"
+go_bin_cont_builder_build_subdir: "."
+go_bin_cont_builder_build_output_name: "{{ go_bin_cont_builder_name }}"
+## disable cgo by default for a fully static, portable binary
+go_bin_cont_builder_cgo_enabled: 0
+## strip debug symbols by default for a smaller binary; set to "" to keep them
+go_bin_cont_builder_build_ldflags: "-s -w"
+## extra raw arguments appended to the "go build" command, e.g. ["-tags", "prod"]
+go_bin_cont_builder_build_extra_args: []
+## cross-compile target; left empty to build for the container's own
+## GOOS/GOARCH
+go_bin_cont_builder_goos: ""
+go_bin_cont_builder_goarch: ""
+## extra environment variables for the build, e.g. GOPROXY, GOPRIVATE, GOFLAGS
+go_bin_cont_builder_go_env: {}
+
+## ==================
+## compiled binary destination on the target host
+go_bin_cont_builder_dest: "/usr/local/bin/{{ go_bin_cont_builder_name }}"
+go_bin_cont_builder_dest_owner: "root"
+go_bin_cont_builder_dest_group: "root"
+go_bin_cont_builder_dest_mode: "0755"

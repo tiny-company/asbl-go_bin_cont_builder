@@ -1,0 +1,39 @@
+---
+## filename: tasks/_fetch_source_url.yml
+## description: download and extract a source tarball/zip archive into the
+##   build staging directory on the target host
+## date: 2026-10-18
+
+## a tarball is a full snapshot, not an incremental sync, so the staging
+## directory is always recreated first to avoid stacking stale/nested
+## content from a previous run
+- name: Remove any previous build source directory
+  ansible.builtin.file:
+    path: "{{ go_bin_cont_builder_build_src_dir }}"
+    state: absent
+
+- name: Recreate the build source directory
+  ansible.builtin.file:
+    path: "{{ go_bin_cont_builder_build_src_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Download the source archive
+  ansible.builtin.get_url:
+    url: "{{ go_bin_cont_builder_source_url }}"
+    dest: "/tmp/{{ go_bin_cont_builder_name }}.src.archive"
+    checksum: "{{ go_bin_cont_builder_source_url_checksum | default(omit) }}"
+    mode: "0600"
+    force: true
+
+- name: Extract the source archive
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ go_bin_cont_builder_name }}.src.archive"
+    dest: "{{ go_bin_cont_builder_build_src_dir }}"
+    remote_src: true
+    extra_opts: "{{ go_bin_cont_builder_source_url_extra_opts }}"
+
+- name: Remove the downloaded source archive
+  ansible.builtin.file:
+    path: "/tmp/{{ go_bin_cont_builder_name }}.src.archive"
+    state: absent

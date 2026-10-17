@@ -1,0 +1,14 @@
+---
+## filename: meta/main.yml
+## description: galaxy metadata for the go_bin_cont_builder role
+## date: 2026-10-18
+
+galaxy_info:
+  role_name: go_bin_cont_builder
+  author: ottomatic
+  description: role for building a go binary inside a containerized golang toolchain
+  company: tiny-company
+  license: license GPL-3.0-only
+  min_ansible_version: 2.14.1
+
+allow_duplicates: true

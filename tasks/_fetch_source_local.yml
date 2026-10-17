@@ -1,0 +1,21 @@
+---
+## filename: tasks/_fetch_source_local.yml
+## description: synchronize a local directory from the Ansible controller
+##   into the build staging directory on the target host
+## date: 2026-10-18
+
+- name: Ensure the build source directory exists
+  ansible.builtin.file:
+    path: "{{ go_bin_cont_builder_build_src_dir }}"
+    state: directory
+    mode: "0755"
+
+## trailing slashes matter here: copy the CONTENTS of the source directory
+## into the destination directory, not the directory itself
+- name: Synchronize local go source to the target host
+  ansible.posix.synchronize:
+    src: "{{ go_bin_cont_builder_source_local_path }}/"
+    dest: "{{ go_bin_cont_builder_build_src_dir }}/"
+    delete: true
+    rsync_opts:
+      - "--exclude=.git"

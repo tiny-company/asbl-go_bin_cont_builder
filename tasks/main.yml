@@ -1,0 +1,40 @@
+---
+## filename: tasks/main.yml
+## description: build a go binary inside a throwaway golang container and
+##   install it to its destination, fetching the source either from a
+##   tarball/zip url or from a local directory on the Ansible controller
+## date: 2026-10-18
+
+- name: Validate role variables
+  ansible.builtin.import_tasks: _assert.yml
+
+## docker itself is treated as a prerequisite, not installed by this role
+## (see readme.md): fail early with a clear message rather than letting
+## the build task fail on "docker: command not found"
+- name: Check that docker is available on the target host
+  ansible.builtin.command: docker version --format '{{ "{{.Server.Version}}" }}'
+  changed_when: false
+
+- name: Install packages required to fetch/extract go source
+  ansible.builtin.include_role:
+    name: apt_packages_install
+  vars:
+    apt_source_package_list:
+      - ca-certificates
+      - tar
+      - unzip
+      - rsync
+
+- name: Fetch source from a url archive
+  ansible.builtin.import_tasks: _fetch_source_url.yml
+  when: go_bin_cont_builder_source_type == "url"
+
+- name: Fetch source from a local directory
+  ansible.builtin.import_tasks: _fetch_source_local.yml
+  when: go_bin_cont_builder_source_type == "local"
+
+- name: Build the go binary
+  ansible.builtin.import_tasks: _build.yml
+
+- name: Install the compiled binary
+  ansible.builtin.import_tasks: _install_binary.yml

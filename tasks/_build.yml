@@ -1,0 +1,89 @@
+---
+## filename: tasks/_build.yml
+## description: build the go binary inside a throwaway golang container.
+##   the docker invocation is assembled as an argument list (never a shell
+##   string) so no part of it is ever shell-interpreted or needs quoting
+## date: 2026-10-18
+
+## the build container writes into the bind-mounted source/cache
+## directories as go_bin_cont_builder_build_uid/gid, so those directories
+## must be owned by that uid/gid up front
+- name: Set ownership of the build source directory for the build user
+  ansible.builtin.file:
+    path: "{{ go_bin_cont_builder_build_src_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ go_bin_cont_builder_build_uid }}"
+    group: "{{ go_bin_cont_builder_build_gid }}"
+
+- name: Ensure the go module/build cache directory exists
+  ansible.builtin.file:
+    path: "{{ go_bin_cont_builder_cache_dir }}"
+    state: directory
+    mode: "0755"
+    owner: "{{ go_bin_cont_builder_build_uid }}"
+    group: "{{ go_bin_cont_builder_build_gid }}"
+  when: go_bin_cont_builder_cache_enabled
+
+- name: Start the docker run argument list
+  ansible.builtin.set_fact:
+    go_bin_cont_builder_docker_args:
+      - "docker"
+      - "run"
+      - "--rm"
+      - "--user"
+      - "{{ go_bin_cont_builder_build_uid }}:{{ go_bin_cont_builder_build_gid }}"
+      - "-v"
+      - "{{ go_bin_cont_builder_build_src_dir }}:/src:rw"
+      - "-w"
+      - "/src"
+      - "-e"
+      - "HOME=/tmp"
+      - "-e"
+      - "CGO_ENABLED={{ go_bin_cont_builder_cgo_enabled }}"
+
+## without a persisted cache, GOPATH/GOCACHE default under $HOME (/tmp
+## here, wiped with the container) which still works, just without reuse
+## across builds
+- name: Append go module/build cache mounts to the argument list
+  ansible.builtin.set_fact:
+    go_bin_cont_builder_docker_args: >-
+      {{ go_bin_cont_builder_docker_args + [
+        '-v', go_bin_cont_builder_cache_dir + '/mod:/go/pkg/mod:rw',
+        '-v', go_bin_cont_builder_cache_dir + '/build-cache:/go-cache:rw',
+        '-e', 'GOCACHE=/go-cache'
+      ] }}
+  when: go_bin_cont_builder_cache_enabled
+
+- name: Append GOOS to the argument list
+  ansible.builtin.set_fact:
+    go_bin_cont_builder_docker_args: "{{ go_bin_cont_builder_docker_args + ['-e', 'GOOS=' + go_bin_cont_builder_goos] }}"
+  when: go_bin_cont_builder_goos | length > 0
+
+- name: Append GOARCH to the argument list
+  ansible.builtin.set_fact:
+    go_bin_cont_builder_docker_args: "{{ go_bin_cont_builder_docker_args + ['-e', 'GOARCH=' + go_bin_cont_builder_goarch] }}"
+  when: go_bin_cont_builder_goarch | length > 0
+
+- name: Append extra GO* environment variables to the argument list
+  ansible.builtin.set_fact:
+    go_bin_cont_builder_docker_args: "{{ go_bin_cont_builder_docker_args + ['-e', item.key + '=' + (item.value | string)] }}"
+  loop: "{{ go_bin_cont_builder_go_env | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Append the build image and "go build" invocation to the argument list
+  ansible.builtin.set_fact:
+    go_bin_cont_builder_docker_args: >-
+      {{ go_bin_cont_builder_docker_args
+        + [go_bin_cont_builder_golang_image + ':' + go_bin_cont_builder_golang_version,
+           'go', 'build', '-o', go_bin_cont_builder_build_output_name]
+        + (['-ldflags', go_bin_cont_builder_build_ldflags] if go_bin_cont_builder_build_ldflags | length > 0 else [])
+        + go_bin_cont_builder_build_extra_args
+        + [go_bin_cont_builder_build_subdir]
+      }}
+
+- name: Build the go binary inside the golang container
+  ansible.builtin.command:
+    cmd: "{{ go_bin_cont_builder_docker_args }}"
+  changed_when: true

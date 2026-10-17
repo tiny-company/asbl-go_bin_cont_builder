@@ -1,0 +1,27 @@
+---
+## filename: tasks/_install_binary.yml
+## description: install the compiled binary to its destination with the
+##   configured ownership/permissions, then optionally clean up the build
+##   source directory
+## date: 2026-10-18
+
+- name: Ensure the destination directory exists
+  ansible.builtin.file:
+    path: "{{ go_bin_cont_builder_dest | dirname }}"
+    state: directory
+    mode: "0755"
+
+- name: Install the compiled binary to its destination
+  ansible.builtin.copy:
+    src: "{{ go_bin_cont_builder_build_src_dir }}/{{ go_bin_cont_builder_build_output_name }}"
+    dest: "{{ go_bin_cont_builder_dest }}"
+    remote_src: true
+    owner: "{{ go_bin_cont_builder_dest_owner }}"
+    group: "{{ go_bin_cont_builder_dest_group }}"
+    mode: "{{ go_bin_cont_builder_dest_mode }}"
+
+- name: Remove the build source directory
+  ansible.builtin.file:
+    path: "{{ go_bin_cont_builder_build_src_dir }}"
+    state: absent
+  when: go_bin_cont_builder_clean_build_dir
