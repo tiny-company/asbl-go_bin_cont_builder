@@ -16,13 +16,22 @@
     owner: "{{ go_bin_cont_builder_build_uid }}"
     group: "{{ go_bin_cont_builder_build_gid }}"
 
-- name: Ensure the go module/build cache directory exists
+## both subdirectories must exist (and be owned by the build uid/gid)
+## BEFORE the bind mount below: an auto-created-by-docker mount point
+## would be owned by root instead, and the container (running as a
+## non-root uid) cannot write its own build cache into a root-owned
+## directory - this was previously only done for the parent directory,
+## which docker never actually mounts directly
+- name: Ensure the go module/build cache subdirectories exist
   ansible.builtin.file:
-    path: "{{ go_bin_cont_builder_cache_dir }}"
+    path: "{{ go_bin_cont_builder_cache_dir }}/{{ item }}"
     state: directory
     mode: "0755"
     owner: "{{ go_bin_cont_builder_build_uid }}"
     group: "{{ go_bin_cont_builder_build_gid }}"
+  loop:
+    - "mod"
+    - "build-cache"
   when: go_bin_cont_builder_cache_enabled
 
 - name: Start the docker run argument list
