@@ -93,6 +93,15 @@ Notable ones:
   *before* extraction when set (strongly recommended) - it is fetched with
   `ansible.builtin.get_url` rather than letting `unarchive` download it
   directly, specifically so the checksum can be checked first.
+- `go_bin_cont_builder_build_subdir` changes the container's working
+  directory and builds `.` from there, rather than staying at the source
+  root and passing the subdir as a package-path argument - this is what
+  makes building a subdirectory that is its own separate nested Go module
+  (its own `go.mod`, e.g. `golang.org/x/tools/gopls` inside the
+  `golang.org/x/tools` monorepo) actually work; the naive "stay at the
+  root, build `./subdir`" approach fails for those with `main module
+  (...) does not contain package ...`, since Go excludes nested-module
+  directories from the parent module's package tree.
 - The `docker run` invocation is always built as an argument list, never a
   shell string, so none of the role's variables are ever shell-interpreted.
 

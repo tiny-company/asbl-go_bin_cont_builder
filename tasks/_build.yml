@@ -34,6 +34,15 @@
     - "build-cache"
   when: go_bin_cont_builder_cache_enabled
 
+## the container's working directory is set to the subdir itself (not
+## /src), and "go build ." is run from there (see below) - rather than
+## staying in /src and passing the subdir as a trailing package-path
+## argument to "go build". Both approaches are equivalent for a plain
+## subdirectory within the same module (e.g. pkglist's "./cmd/pkglist"),
+## but only chdir+"." works when the subdir is its own separate nested
+## Go module (its own go.mod) - go build would otherwise fail with
+## "main module (...) does not contain package ..." (confirmed against
+## golang.org/x/tools/gopls, a nested module inside the x/tools monorepo)
 - name: Start the docker run argument list
   ansible.builtin.set_fact:
     go_bin_cont_builder_docker_args:
@@ -45,7 +54,7 @@
       - "-v"
       - "{{ go_bin_cont_builder_build_src_dir }}:/src:rw"
       - "-w"
-      - "/src"
+      - "/src/{{ go_bin_cont_builder_build_subdir.lstrip('./') }}"
       - "-e"
       - "HOME=/tmp"
       - "-e"
@@ -81,15 +90,22 @@
   loop_control:
     label: "{{ item.key }}"
 
+## "-o" is an absolute path back to /src (not a bare filename) because
+## the working directory is now the subdir itself (see above), not /src -
+## _install_binary.yml expects the compiled binary directly under
+## go_bin_cont_builder_build_src_dir regardless of which subdir it was
+## actually built from. The package argument is always "." for the same
+## reason: the subdir is already the cwd, there is nothing left to
+## path-join.
 - name: Append the build image and "go build" invocation to the argument list
   ansible.builtin.set_fact:
     go_bin_cont_builder_docker_args: >-
       {{ go_bin_cont_builder_docker_args
         + [go_bin_cont_builder_golang_image + ':' + go_bin_cont_builder_golang_version,
-           'go', 'build', '-o', go_bin_cont_builder_build_output_name]
+           'go', 'build', '-o', '/src/' + go_bin_cont_builder_build_output_name]
         + (['-ldflags', go_bin_cont_builder_build_ldflags] if go_bin_cont_builder_build_ldflags | length > 0 else [])
         + go_bin_cont_builder_build_extra_args
-        + [go_bin_cont_builder_build_subdir]
+        + ['.']
       }}
 
 - name: Build the go binary inside the golang container

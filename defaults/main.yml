@@ -58,8 +58,18 @@ go_bin_cont_builder_cache_dir: "/var/cache/go_bin_cont_builder/{{ go_bin_cont_bu
 
 ## ==================
 ## build command
-## subdirectory (relative to the module root) to build, passed as the
-## final argument to "go build"
+## subdirectory (relative to the extracted/synced source root) the build
+## actually runs from: the container's working directory is set to this
+## path and "go build ." is run from there, rather than staying at the
+## source root and passing this as a trailing package-path argument.
+## this matters whenever the subdirectory is its own separate nested Go
+## module (its own go.mod) - e.g. golang.org/x/tools/gopls inside the
+## x/tools monorepo - where "go build ./gopls" from the parent module's
+## root fails with "main module (...) does not contain package ...",
+## since Go excludes nested-module directories from the parent module's
+## package tree entirely. For a plain subdirectory within the same module
+## (no nested go.mod), chdir+"." and the old subdir-as-package-path
+## approach are equivalent.
 go_bin_cont_builder_build_subdir: "."
 go_bin_cont_builder_build_output_name: "{{ go_bin_cont_builder_name }}"
 ## disable cgo by default for a fully static, portable binary
